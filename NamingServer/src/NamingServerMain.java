@@ -16,10 +16,10 @@ public class NamingServerMain {
 		try {
 			servSock = new ServerSocket(port);
 		} catch (IOException e) {
-			System.err.println("Can't start server");
+			System.err.println("Can't start naming server");
 			return;
 		}
-		System.out.println("Server started");
+		System.out.println("Naming server started");
 		File root = new File(Constants.ROOT_FOLDER_NAME);
         if (!root.exists()) {
             if (root.mkdir()) {
@@ -32,52 +32,36 @@ public class NamingServerMain {
 		while (true) {
 			try {
 				Socket newConnection = servSock.accept();
-				User u = new User(newConnection);
-				u.start();
+				User user = new User(newConnection);
+				user.start();
 			} catch (IOException e) {
-				System.err.println("ERR: Error establishing connection. Reason: " + e.getMessage());
+				System.err.println("Error establishing connection. Reason: " + e.getMessage());
 			}
 		}
 	}
 
-	static void fillBadWords() {
-		badWords.add("fuck");
-		badWords.add("bastard");
-		badWords.add("bitch");
-		badWords.add("whore");
-		badWords.add("shit");
-		badWords.add("asshole");
-		badWords.add("slut");
-		badWords.add("crap");
-		badWords.add("dick");
-		badWords.add("pussy");
-		badWords.add("ass");
-		badWords.add("motherfucker");
-		badWords.add("nigga");
-	}
-
-	synchronized static boolean removeUser(User u) {
-		for(User user : users){
-			if (user.equals(u)) {
-				users.remove(user);
-				System.out.println("User " + user.username + " removed");
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	synchronized static boolean usernameIsFree(String username) {
-		boolean result = true;
-		for (User u : users) {
-			if (u.username.equals(username)) {
-				result = false;
-				break;
-			}
-		}
-		return result;
-	}
+//	synchronized static boolean removeUser(User u) {
+//		for(User user : users){
+//			if (user.equals(u)) {
+//				users.remove(user);
+//				System.out.println("User " + user.username + " removed");
+//				return true;
+//			}
+//		}
+//
+//		return false;
+//	}
+//
+//	synchronized static boolean usernameIsFree(String username) {
+//		boolean result = true;
+//		for (User u : users) {
+//			if (u.username.equals(username)) {
+//				result = false;
+//				break;
+//			}
+//		}
+//		return result;
+//	}
 
 	synchronized static void sendToAll(String message) throws IOException {
 		for (User u : users) {
@@ -101,26 +85,26 @@ public class NamingServerMain {
 		return result;
 	}
 
-	synchronized static String formatAllUsers() {
-		StringBuilder result = new StringBuilder();
-		result.append(formatServiceMessage("List of connected clients"));
-		for (User user : users) {
-			result.append("\n--");
-			result.append(user.username);
-		}
-
-		result.append("\n----------------------------------------");
-		return result.toString();
-	}
-
-	synchronized static User findByUsername(String username) {
-		User result = null;
-		for (User u : users) {
-			if (u.username.equals(username)) {
-				result = u;
-				break;
-			}
-		}
-		return result;
-	}
+//	synchronized static String formatAllUsers() {
+//		StringBuilder result = new StringBuilder();
+//		result.append(formatServiceMessage("List of connected clients"));
+//		for (User user : users) {
+//			result.append("\n--");
+//			result.append(user.username);
+//		}
+//
+//		result.append("\n----------------------------------------");
+//		return result.toString();
+//	}
+//
+//	synchronized static User findByUsername(String username) {
+//		User result = null;
+//		for (User u : users) {
+//			if (u.username.equals(username)) {
+//				result = u;
+//				break;
+//			}
+//		}
+//		return result;
+//	}
 }

@@ -6,62 +6,56 @@ public class ClientMain {
 	final static int port = 1111;
 	final static ClientThread clientThread = new ClientThread(ClientMain.host, ClientMain.port);
 	final static Scanner userInput = new Scanner(System.in);
+	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
 
 	public static void main(String[] args) {
 		String userChoice;
-		String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
 		String menu = getMenuString();
 		System.out.println(menu);
 		
 		do {
-			System.out.println(currentDir);
+			printCommandLine();
 			userChoice = userInput.nextLine().toLowerCase();
-			
-			if(userChoice.equals(Constants.CMD_INIT)){
+			String[] userChoiceSplit = userChoice.split(" ");
+			if(userChoiceSplit.length > 0){
+				String command = userChoiceSplit[0];
+				String request = command;
+				if(!command.equals(userChoice)){
+					String parameter = userChoice.substring(command.length() + 1);
+					if(command.equals(Constants.CMD_REMOVE)){
+						if(!confirmDirRemoval(parameter)){
+							continue;
+						}
+					}
+					
+					request = command + Constants.DELIMITER + parameter;
+				}
 				
-			} else if(userChoice.startsWith(Constants.CMD_READ)){
-				
-			} else if(userChoice.startsWith(Constants.CMD_WRITE)){
-				
-			} else if(userChoice.startsWith(Constants.CMD_DELETE)){
-				
-			} else if(userChoice.startsWith(Constants.CMD_INFO)){
-				
-			} else if(userChoice.startsWith(Constants.CMD_OPEN)){
-				
-			} else if(userChoice.equals(Constants.CMD_LIST)){
-				
-			} else if(userChoice.startsWith(Constants.CMD_MAKE)){
-				onMakeCommand(userChoice);
-			} else if(userChoice.startsWith(Constants.CMD_REMOVE)){
-				
-			} else if(userChoice.equals(Constants.CMD_EXIT)){
-				break;
+				ClientMain.clientThread.sendMessage(request);
 			} else {
 				System.err.println("Please, enter a valid command!");
 			}
-				
-			// ClientMain.clientThread.sendMessage(userChoice);
-
-		} while (!userChoice.equalsIgnoreCase("exit"));
+		} while (!userChoice.equalsIgnoreCase(Constants.CMD_EXIT));
 
 		userInput.close();
 	}
 
-	private static void onOpenCommand(){
-		System.out.println("Please enter the name of the new directory: ");
-		String directoryName = userInput.nextLine();
-		ClientMain.clientThread.sendMessage("make" + Constants.DELIMITER + directoryName);
+	public static void printCommandLine(){
+		System.out.println(ClientMain.currentDir.toUpperCase());
 	}
 	
-	private static void onMakeCommand(String userChoice){
-		String directoryName = userChoice.substring(Constants.CMD_MAKE.length() + 1);
-		ClientMain.clientThread.sendMessage(Constants.CMD_MAKE + Constants.DELIMITER + directoryName);
-	}
-	
-	private static String getParameterFromCommand(String command, String userChoice){
-		String parameter = userChoice.substring(command.length() + 1);
-		return parameter;
+	private static boolean confirmDirRemoval(String dir){
+		System.out.println("Are you sure you want to remove directory '" + dir + "'. All files and directories in it will also be removed.");
+		System.out.println("yes/no");
+		String answer = userInput.nextLine().toLowerCase();
+		if(answer.equals("yes")){
+			return true;
+		} else if(answer.equals("no")){
+			return false;
+		} else {
+			System.out.println("You should have answered with 'yes' or 'no'.");
+			return false;
+		}
 	}
 	
 	private static String getMenuString() {
