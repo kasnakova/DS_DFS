@@ -1,8 +1,14 @@
 import java.io.IOException;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 public class User extends Thread {
 	String currentDir;
@@ -19,7 +25,7 @@ public class User extends Thread {
 
 	public void run() {
 		try {
-			this.startUserChat();
+			this.startUserThread();
 		} catch (IOException e) {
 			System.err.println("User left. Reason: " + e.getMessage());
 		} finally {
@@ -27,16 +33,16 @@ public class User extends Thread {
 		}
 	}
 
-	private void startUserChat() throws IOException {
+	private void startUserThread() throws IOException {
 		String message;
 		do {
 			message = this.in.readUTF().toLowerCase();
 			if (message.equals(Constants.CMD_INIT)) {
 
 			} else if (message.startsWith(Constants.CMD_READ)) {
-
+				onReadCommand(message);
 			} else if (message.startsWith(Constants.CMD_WRITE)) {
-
+				onWriteCommand(message);
 			} else if (message.startsWith(Constants.CMD_DELETE)) {
 
 			} else if (message.startsWith(Constants.CMD_INFO)) {
@@ -51,10 +57,53 @@ public class User extends Thread {
 				onRemoveCommand(message);
 			} else if (message.equals(Constants.CMD_EXIT)) {
 				break;
+			} else if (message.startsWith(Constants.CMD_REGISTER)) {
+				registerStorageServer(message);
+			} else if (message.startsWith(Constants.TYPE_SUCCESS_WRITE)) {
+				successInWritingToStorageServer(message);
 			} else {
-				send("Please, enter a valid command!");
+				send(Constants.TYPE_MSG + Constants.DELIMITER + "Please, enter a valid command!");
 			}
 		} while (!message.equalsIgnoreCase(Constants.CMD_EXIT));
+	}
+
+	private void onReadCommand(String message) throws IOException {
+		String fileName = message.split(Constants.DELIMITER)[1];
+		String response = Constants.TYPE_MSG + Constants.DELIMITER;
+		String path = this.currentDir + "/" + fileName;
+		File file = new File(path);
+		if (file.exists()) {
+			if (file.isDirectory()) {
+				response += "'" + fileName + "' is a directory. You can open it but not read it like a file.";
+			} else {
+				List<String> content = Files.readAllLines(Paths.get(path));
+				String address = content.get(0).trim();
+				response = Constants.TYPE_READ + Constants.DELIMITER + address + " " + path;
+			}
+		} else {
+			response += "Can't read file '" + fileName + "' because it does not exist in the current directory.";
+		}
+
+		send(response);
+	}
+	
+	private void onWriteCommand(String message) throws IOException {
+		String fileName = message.split(Constants.DELIMITER)[1];
+		String response = Constants.TYPE_MSG + Constants.DELIMITER;
+		String path = this.currentDir + "/" + fileName;
+		File file = new File(path);
+		if (!file.exists()) {
+			String address = NamingServerMain.getAvailableStorageServerForWriting();
+			if(address != null){
+				response = Constants.TYPE_WRITE + Constants.DELIMITER + address + " " + path;
+			} else {
+				response += "There are no available storage servers to which you can write your file. Sorry.";
+			}
+		} else {
+			response += "File with name '" + fileName + "' already exists in the current directory.";
+		}
+
+		send(response);
 	}
 
 	private void onOpenCommand(String message) throws IOException {
@@ -131,11 +180,11 @@ public class User extends Thread {
 			File file = new File(path);
 			if (file.exists()) {
 				if (file.isDirectory()) {
-					//TODO: delete from storage servers 
-					//TODO: delete all files in the directory
+					// TODO: delete from storage servers
+					// TODO: delete all files in the directory
 					response += "Directory '" + fileName + "' was successfully removed along with all of its contents";
-					//TODO: delete from storage servers
-					//TODO: this should be in the delete file command
+					// TODO: delete from storage servers
+					// TODO: this should be in the delete file command
 					if (file.delete()) {
 						response += "'" + fileName + "' was successfully removed";
 					} else {
@@ -152,12 +201,41 @@ public class User extends Thread {
 		send(response);
 	}
 
+	private void registerStorageServer(String message) throws IOException {
+		String port = message.split(Constants.DELIMITER)[1];
+		String address = this.mySocket.getInetAddress().getHostAddress() + ":" + port;
+		System.out.println("Added storage server: " + address);
+		NamingServerMain.addStorageServer(address, this);
+		send(Constants.RES_SUCCESS);
+	}
+	
+	private void successInWritingToStorageServer(String message) throws IOException {
+		String[] data = message.split(Constants.DELIMITER);
+		String address = data[1];
+		String path = data[2];
+		String response = Constants.TYPE_MSG + Constants.DELIMITER;
+		File file = new File(path);
+		if (!file.exists()) {
+			if (file.getParentFile().mkdirs() && file.createNewFile()) {
+				Files.write(Paths.get(path), address.getBytes());
+				response += "File '" + path + "' was successfully created";
+			} else {
+				response += "Failed to create file '" + path + "'";
+			}
+		} else {
+			response += "File '" + path + "' already exists.";
+		}
+
+		send(response);
+	}
+
 	void send(String message) throws IOException {
 		out.writeUTF(message);
 	}
 
 	public void closeConnection() {
 		try {
+			NamingServerMain.removeStorageServer(this);
 			if (this.in != null)
 				in.close();
 			if (this.out != null)

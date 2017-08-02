@@ -3,18 +3,18 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Enumeration;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NamingServerMain {
-	static ArrayList<User> users = new ArrayList<User>(10);
-	static int port = 1111;
-	static List<String> badWords = new ArrayList<String>();
+	private static ConcurrentHashMap<String, User> storageServers = new ConcurrentHashMap<String, User>();
 
 	public static void main(String[] args) {
 		// Starting server
 		ServerSocket servSock;
 		try {
-			servSock = new ServerSocket(port);
+			servSock = new ServerSocket(Constants.NAMING_SERVER_PORT);
 		} catch (IOException e) {
 			System.err.println("Can't start naming server");
 			return;
@@ -39,6 +39,39 @@ public class NamingServerMain {
 			}
 		}
 	}
+	
+	public static void addStorageServer(String storageServerAddress, User user){
+		storageServers.put(storageServerAddress, user);
+	}
+	
+	public static void removeStorageServer(User user){
+		String key = null;
+		for(String k : storageServers.keySet()){
+			if(user.equals(storageServers.get(k))){
+				key = k;
+				break;
+			}
+		}
+		
+		if(key != null){
+			storageServers.remove(key);
+		}
+	}
+	
+	public static String getAvailableStorageServerForWriting(){
+		//TODO: make it choose according to available memory
+		Enumeration<String> addresses = storageServers.keys();
+		int rand = new Random().nextInt(storageServers.size());
+		while(addresses.hasMoreElements()){
+			String address = addresses.nextElement();
+			rand--;
+			if(rand <= 0){
+				return address;
+			}
+		}
+		
+		return null;
+	}
 
 //	synchronized static boolean removeUser(User u) {
 //		for(User user : users){
@@ -62,29 +95,6 @@ public class NamingServerMain {
 //		}
 //		return result;
 //	}
-
-	synchronized static void sendToAll(String message) throws IOException {
-		for (User u : users) {
-			u.send(message);
-		}
-	}
-
-	synchronized static boolean isMessageBad(String message) {
-		message = message.toLowerCase();
-		for (String word : badWords) {
-			if (message.contains(word)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	synchronized static String formatServiceMessage(String message) {
-		String result = "-------" + message.toUpperCase() + "-------";
-		return result;
-	}
-
 //	synchronized static String formatAllUsers() {
 //		StringBuilder result = new StringBuilder();
 //		result.append(formatServiceMessage("List of connected clients"));

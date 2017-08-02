@@ -1,10 +1,7 @@
 import java.util.Scanner;
 
 public class ClientMain {
-	// TODO: remove hard-coded things
-	final static String host = "localhost";
-	final static int port = 1111;
-	final static ClientThread clientThread = new ClientThread(ClientMain.host, ClientMain.port);
+	final static ClientThread clientThread = new ClientThread(Constants.NAMING_SERVER_HOST, Constants.NAMING_SERVER_PORT);
 	final static Scanner userInput = new Scanner(System.in);
 	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
 
