@@ -10,13 +10,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-public class User extends Thread {
+public class NamingServerUser extends Thread {
 	String currentDir;
 	Socket mySocket;
 	DataInputStream in;
 	DataOutputStream out;
 
-	public User(Socket s) throws IOException {
+	public NamingServerUser(Socket s) throws IOException {
 		this.mySocket = s;
 		this.in = new DataInputStream(s.getInputStream());
 		this.out = new DataOutputStream(s.getOutputStream());
@@ -44,7 +44,7 @@ public class User extends Thread {
 			} else if (message.startsWith(Constants.CMD_WRITE)) {
 				onWriteCommand(message);
 			} else if (message.startsWith(Constants.CMD_DELETE)) {
-
+				onDeleteCommand(message);
 			} else if (message.startsWith(Constants.CMD_INFO)) {
 
 			} else if (message.startsWith(Constants.CMD_OPEN)) {
@@ -86,7 +86,7 @@ public class User extends Thread {
 
 		send(response);
 	}
-	
+
 	private void onWriteCommand(String message) throws IOException {
 		String fileName = message.split(Constants.DELIMITER)[1];
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
@@ -94,13 +94,53 @@ public class User extends Thread {
 		File file = new File(path);
 		if (!file.exists()) {
 			String address = NamingServerMain.getAvailableStorageServerForWriting();
-			if(address != null){
+			if (address != null) {
 				response = Constants.TYPE_WRITE + Constants.DELIMITER + address + " " + path;
 			} else {
 				response += "There are no available storage servers to which you can write your file. Sorry.";
 			}
 		} else {
 			response += "File with name '" + fileName + "' already exists in the current directory.";
+		}
+
+		send(response);
+	}
+
+	private void onDeleteCommand(String message) {
+		String fileName = message.split(Constants.DELIMITER)[1];
+		String response = Constants.TYPE_MSG + Constants.DELIMITER;
+		String path = this.currentDir + "/" + fileName;
+		File file = new File(path);
+		if (file.exists()) {
+			if (!file.isDirectory()) {
+				try {
+					List<String> content = Files.readAllLines(Paths.get(path));
+					String address = content.get(0).trim();
+					NamingServerUser storage = NamingServerMain.getStorageServerByAddress(address);
+					if (storage != null) {
+						storage.out.writeUTF(Constants.TYPE_DELETE + Constants.DELIMITER + path);
+						String storageResponse = storage.in.readUTF();
+						String[] splitStorageResponse = storageResponse.split(Constants.DELIMITER);
+						String result = splitStorageResponse[0];
+						if (result.equals(Constants.RES_SUCCESS)) {
+							if (file.delete()) {
+								response += "'" + fileName + "' was successfully deleted";
+							} else {
+								response += "Something went wrong and '" + fileName + "' could not be deleted from the index.";
+							}
+						} else {
+							String error = splitStorageResponse[1];
+							response += "'" + fileName + "' not successfully deleted.\n" + error;
+						}
+					}
+				} catch (IOException e) {
+					response += "Something went wrong and '" + fileName + "' could not be deleted!\n" + e.getMessage();
+				}
+			} else {
+				response += "'" + fileName + "' was not deleted since it is a directory";
+			}
+		} else {
+			response += "Can't remove '" + fileName + "' it already does not exist in the current directory.";
 		}
 
 		send(response);
@@ -208,7 +248,7 @@ public class User extends Thread {
 		NamingServerMain.addStorageServer(address, this);
 		send(Constants.RES_SUCCESS);
 	}
-	
+
 	private void successInWritingToStorageServer(String message) throws IOException {
 		String[] data = message.split(Constants.DELIMITER);
 		String address = data[1];
@@ -216,11 +256,12 @@ public class User extends Thread {
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
 		File file = new File(path);
 		if (!file.exists()) {
-			if (file.getParentFile().mkdirs() && file.createNewFile()) {
+			file.getParentFile().mkdirs();
+			if (file.createNewFile()) {
 				Files.write(Paths.get(path), address.getBytes());
-				response += "File '" + path + "' was successfully created";
+				response += "File '" + path + "' was successfully indexed.";
 			} else {
-				response += "Failed to create file '" + path + "'";
+				response += "Failed to index file '" + path + "'";
 			}
 		} else {
 			response += "File '" + path + "' already exists.";
@@ -229,8 +270,14 @@ public class User extends Thread {
 		send(response);
 	}
 
-	void send(String message) throws IOException {
-		out.writeUTF(message);
+	void send(String message) {
+		try {
+			this.out.writeUTF(message);
+			this.out.flush();
+		} catch (IOException e) {
+			System.err.println("CANT'T SEND MESSAGE");
+			this.closeConnection();
+		}
 	}
 
 	public void closeConnection() {

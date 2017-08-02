@@ -2,13 +2,12 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.ServerSocket;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class NamingServerMain {
-	private static ConcurrentHashMap<String, User> storageServers = new ConcurrentHashMap<String, User>();
+	private static ConcurrentHashMap<String, NamingServerUser> storageServers = new ConcurrentHashMap<String, NamingServerUser>();
 
 	public static void main(String[] args) {
 		// Starting server
@@ -32,7 +31,7 @@ public class NamingServerMain {
 		while (true) {
 			try {
 				Socket newConnection = servSock.accept();
-				User user = new User(newConnection);
+				NamingServerUser user = new NamingServerUser(newConnection);
 				user.start();
 			} catch (IOException e) {
 				System.err.println("Error establishing connection. Reason: " + e.getMessage());
@@ -40,11 +39,15 @@ public class NamingServerMain {
 		}
 	}
 	
-	public static void addStorageServer(String storageServerAddress, User user){
+	public static void addStorageServer(String storageServerAddress, NamingServerUser user){
 		storageServers.put(storageServerAddress, user);
 	}
 	
-	public static void removeStorageServer(User user){
+	public static NamingServerUser getStorageServerByAddress(String storageServerAddress){
+		return storageServers.get(storageServerAddress);
+	}
+	
+	public static void removeStorageServer(NamingServerUser user){
 		String key = null;
 		for(String k : storageServers.keySet()){
 			if(user.equals(storageServers.get(k))){

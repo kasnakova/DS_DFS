@@ -1,12 +1,9 @@
 import java.io.IOException;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Scanner;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.DataInputStream;
 
 public class ClientThread extends Thread {
@@ -80,18 +77,19 @@ public class ClientThread extends Thread {
 			String[] splitResponse = response.split(Constants.DELIMITER);
 			String result = splitResponse[0];
 			String resData = splitResponse[1];
-			if(result.equals(Constants.RES_SUCCESS)){
+			if (result.equals(Constants.RES_SUCCESS)) {
 				System.out.println(filePath + ":");
 				System.out.println(resData);
 			} else {
-				System.out.println("Sorry, something went wrong and you can't read the specified file right now.\n" + resData);
+				System.out.println(
+						"Sorry, something went wrong and you can't read the specified file right now.\n" + resData);
 			}
 		} catch (IOException e) {
 			System.err.println("Sorry, could not read the specified file, try again later!");
 			System.err.println(e.getMessage());
 		}
 	}
-	
+
 	void writeToStorageServer(String data) {
 		String[] splitData = data.split(" ");
 		String address = splitData[0];
@@ -102,39 +100,28 @@ public class ClientThread extends Thread {
 		try (Socket storageServer = new Socket(ip, port);
 				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
 				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
-			System.out.println("Write the path to the local file which you want to upload to DFS: ");
-			Scanner sc = new Scanner(System.in);
-			String localPath = sc.nextLine();
-			if(!localPath.contains(Constants.FILE_EXTENSION)){
-				System.out.println("Only text files are allowed (i.e. with file extention .txt)!");
-				return;
+			List<String> fileContents = Files.readAllLines(Paths.get(ClientMain.localFilePath));
+			StringBuilder contents = new StringBuilder();
+			for (String line : fileContents) {
+				contents.append(line);
+				contents.append(System.getProperty("line.separator"));
 			}
-			
-			File file = new File(localPath);
-			if (file.exists()) {
-				List<String> fileContents = Files.readAllLines(Paths.get(localPath));
-				StringBuilder contents = new StringBuilder();
-				for(String line : fileContents){
-					contents.append(line);
-					contents.append(System.getProperty("line.separator"));
-				}
-				
-				String message = Constants.TYPE_WRITE + Constants.DELIMITER + filePath + Constants.DELIMITER + contents.toString();
-				ssOut.writeUTF(message);
-				ssOut.flush();
-				String response = ssIn.readUTF();
-				String[] splitResponse = response.split(Constants.DELIMITER);
-				String result = splitResponse[0];
-				String resData = splitResponse[1];
-				if(result.equals(Constants.RES_SUCCESS)){
-					System.out.println(resData);
-					String namingServerMessage = Constants.TYPE_SUCCESS_WRITE + Constants.DELIMITER + address + Constants.DELIMITER + filePath;
-					sendMessage(namingServerMessage);
-				} else {
-					System.out.println("Sorry, something went wrong and your new file was not save to DFS.\n" + resData);
-				}
+
+			String message = Constants.TYPE_WRITE + Constants.DELIMITER + filePath + Constants.DELIMITER
+					+ contents.toString();
+			ssOut.writeUTF(message);
+			ssOut.flush();
+			String response = ssIn.readUTF();
+			String[] splitResponse = response.split(Constants.DELIMITER);
+			String result = splitResponse[0];
+			String resData = splitResponse[1];
+			if (result.equals(Constants.RES_SUCCESS)) {
+				System.out.println(resData);
+				String namingServerMessage = Constants.TYPE_SUCCESS_WRITE + Constants.DELIMITER + address
+						+ Constants.DELIMITER + filePath;
+				sendMessage(namingServerMessage);
 			} else {
-				System.out.println("'" + localPath + "' does not exist on this machine. Can't write to DFS.");
+				System.out.println("Sorry, something went wrong and your new file was not saved to DFS.\n" + resData);
 			}
 		} catch (IOException e) {
 			System.err.println("Sorry, could not read the specified file, try again later!");

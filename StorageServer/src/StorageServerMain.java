@@ -7,10 +7,8 @@ import java.util.Random;
 import java.net.ServerSocket;
 
 public class StorageServerMain {
-	private static Socket namingServerSocket;
-	private static DataInputStream namingServerIn;
-	private static DataOutputStream namingServerOut;
-	private static int port;
+	static int port;	
+    static NamingServerThread clientThread;
 
 	public static void main(String[] args) {
 		// TODO: make the naming server ip command line args
@@ -20,23 +18,24 @@ public class StorageServerMain {
 			port = new Random().nextInt(1000) + 1000;
 			servSock = new ServerSocket(port);
 			ip = servSock.getInetAddress().getHostAddress() + ":" + servSock.getLocalPort();
+			clientThread = new NamingServerThread(port);
 			System.out.println("Storage server started at IP: " + ip);
 		} catch (IOException e) {
-			System.err.println("Can't start storage server");
+			System.err.println("Can't start storage and register server.\n" + e.getMessage());
 			return;
 		}
 		
-		if(register() && createRootDirectory(port)){
+		if(createRootDirectory(port)){
 		while (true) {
 			try {
 				Socket newConnection = servSock.accept();
-				User user = new User(newConnection);
+				StorageServerUser user = new StorageServerUser(newConnection);
 				user.start();
 			} catch (IOException e) {
 				System.err.println("Error establishing connection. Reason: " + e.getMessage());
 			}
 		}} else {
-			System.err.println("Storage server shutting down because it could not register with the Naming server!");
+			System.err.println("Storage server shutting down because it could not create its root directory!");
 		}
 	}
 	
@@ -60,24 +59,5 @@ public class StorageServerMain {
         }
 		
 		return false;
-	}
-	
-	private static boolean register(){
-		try {
-			namingServerSocket = new Socket(Constants.NAMING_SERVER_HOST, Constants.NAMING_SERVER_PORT);
-			System.out.println("CONNECTED TO NAMING SERVER");
-			namingServerIn = new DataInputStream(namingServerSocket.getInputStream());
-			namingServerOut = new DataOutputStream(namingServerSocket.getOutputStream());
-			namingServerOut.writeUTF(Constants.CMD_REGISTER + Constants.DELIMITER + port);
-			namingServerOut.flush();
-			String response = namingServerIn.readUTF();
-			if(response.equals(Constants.RES_SUCCESS)){
-				return true;
-			} else {
-				return false;
-			}
-		} catch (IOException e) {
-			return false;
-		}
 	}
 }

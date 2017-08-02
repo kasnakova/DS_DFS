@@ -19,6 +19,7 @@ public class Constants {
 	public static final String TYPE_READ = "read_from_storage_server";
 	public static final String TYPE_WRITE = "write_from_storage_server";
 	public static final String TYPE_SUCCESS_WRITE = "success_write_to_storage_server";
+	public static final String TYPE_DELETE = "delete_from_storage";
 	
 	public static final String RES_SUCCESS = "success";
 	public static final String RES_ERROR = "error";

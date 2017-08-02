@@ -8,12 +8,12 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-public class User extends Thread {
+public class StorageServerUser extends Thread {
 	Socket mySocket;
 	DataInputStream in;
 	DataOutputStream out;
 
-	public User(Socket s) throws IOException {
+	public StorageServerUser(Socket s) throws IOException {
 		this.mySocket = s;
 		this.in = new DataInputStream(s.getInputStream());
 		this.out = new DataOutputStream(s.getOutputStream());
@@ -21,7 +21,7 @@ public class User extends Thread {
 
 	public void run() {
 		try {
-			this.startUserChat();
+			this.startUserThread();
 		} catch (IOException e) {
 			System.err.println("User left. Reason: " + e.getMessage());
 		} finally {
@@ -29,7 +29,7 @@ public class User extends Thread {
 		}
 	}
 
-	private void startUserChat() throws IOException {
+	private void startUserThread() throws IOException {
 		String message;
 		do {
 			message = this.in.readUTF().toLowerCase();
@@ -39,8 +39,6 @@ public class User extends Thread {
 				onReadCommand(message);
 			} else if (message.startsWith(Constants.TYPE_WRITE)) {
 				onWriteCommand(message);
-			} else if (message.startsWith(Constants.CMD_DELETE)) {
-
 			} else if (message.startsWith(Constants.CMD_INFO)) {
 
 			} else if (message.startsWith(Constants.CMD_OPEN)) {
@@ -60,7 +58,7 @@ public class User extends Thread {
 	}
 
 	private void onReadCommand(String message) {
-		String filePath = message.split(Constants.DELIMITER)[1];
+		String filePath = StorageServerMain.port + "/" + message.split(Constants.DELIMITER)[1];
 		StringBuilder response =  new StringBuilder();
 			File file = new File(filePath);
 			if (file.exists()) {
@@ -88,16 +86,23 @@ public class User extends Thread {
 	
 	private void onWriteCommand(String message) {
 		String[] data = message.split(Constants.DELIMITER);
-		String filePath = data[1];
+		String filePath = StorageServerMain.port + "/" + data[1];
 		String contents = data[2];
 		StringBuilder response =  new StringBuilder();
 			File file = new File(filePath);
 			if (!file.exists()) {
 				try {
-					Files.write(Paths.get(filePath), contents.getBytes());
-					response.append(Constants.RES_SUCCESS);
-					response.append(Constants.DELIMITER);
-					response.append("File '" + filePath + "' successfully created.");
+					file.getParentFile().mkdirs();
+					if (file.createNewFile()) {
+						Files.write(Paths.get(filePath), contents.getBytes());
+						response.append(Constants.RES_SUCCESS);
+						response.append(Constants.DELIMITER);
+						response.append("File '" + filePath + "' successfully created.");
+					} else {
+						response.append(Constants.RES_ERROR);
+						response.append(Constants.DELIMITER);
+						response.append("Failed to create file '" + filePath + "'");
+					}
 				} catch(IOException e){
 					response.append(Constants.RES_ERROR);
 					response.append(Constants.DELIMITER);
@@ -111,6 +116,8 @@ public class User extends Thread {
 
 		send(response.toString());
 	}
+	
+
 //
 //	private void onListCommand(String message) throws IOException {
 //		File dir = new File(this.currentDir);
