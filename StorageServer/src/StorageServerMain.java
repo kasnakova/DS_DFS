@@ -7,15 +7,21 @@ import java.util.Random;
 import java.net.ServerSocket;
 
 public class StorageServerMain {
-	static int port;	
-    static NamingServerThread clientThread;
+	static int port;
+	static NamingServerThread clientThread;
 
 	public static void main(String[] args) {
-		// TODO: make the naming server ip command line args
 		ServerSocket servSock;
-		String ip = "unknown"; 
+		String ip = "unknown";
 		try {
-			port = new Random().nextInt(1000) + 1000;
+			if (args.length > 0) {
+				port = Integer.parseInt(args[0]);
+			} else {
+				System.err.println(
+						"Please, specify the port number on which to run this storage server as program argument!");
+				return;
+			}
+
 			servSock = new ServerSocket(port);
 			ip = servSock.getInetAddress().getHostAddress() + ":" + servSock.getLocalPort();
 			clientThread = new NamingServerThread(port);
@@ -24,40 +30,43 @@ public class StorageServerMain {
 			System.err.println("Can't start storage and register server.\n" + e.getMessage());
 			return;
 		}
-		
-		if(createRootDirectory(port)){
-		while (true) {
-			try {
-				Socket newConnection = servSock.accept();
-				StorageServerUser user = new StorageServerUser(newConnection);
-				user.start();
-			} catch (IOException e) {
-				System.err.println("Error establishing connection. Reason: " + e.getMessage());
+
+		if (createRootDirectory(port)) {
+			while (true) {
+				try {
+					Socket newConnection = servSock.accept();
+					StorageServerUser user = new StorageServerUser(newConnection);
+					user.start();
+				} catch (IOException e) {
+					System.err.println("Error establishing connection. Reason: " + e.getMessage());
+				}
 			}
-		}} else {
+		} else {
 			System.err.println("Storage server shutting down because it could not create its root directory!");
 		}
 	}
-	
-	private static boolean createRootDirectory(int port){
+
+	private static boolean createRootDirectory(int port) {
 		File portDir = new File(String.valueOf(port));
 		if (!portDir.exists()) {
-            if (portDir.mkdir()) {
-                System.out.println("Port directory was created!");
-                File root = new File(port + "/" + Constants.ROOT_FOLDER_NAME);
-                if (!root.exists()) {
-                    if (root.mkdir()) {
-                        System.out.println("Root directory was created!");
-                        return true;
-                    } else {
-                        System.err.println("Failed to create root directory!");
-                    }
-                }
-            } else {
-                System.err.println("Failed to create port directory!");
-            }
-        }
-		
+			if (portDir.mkdir()) {
+				System.out.println("Port directory was created!");
+				File root = new File(port + "/" + Constants.ROOT_FOLDER_NAME);
+				if (!root.exists()) {
+					if (root.mkdir()) {
+						System.out.println("Root directory was created!");
+						return true;
+					} else {
+						System.err.println("Failed to create root directory!");
+					}
+				}
+			} else {
+				System.err.println("Failed to create port directory!");
+			}
+		} else {
+			return true;
+		}
+
 		return false;
 	}
 }

@@ -40,7 +40,10 @@ public class ClientThread extends Thread {
 						ClientMain.currentDir = data + ">";
 						break;
 					case Constants.TYPE_READ:
-						readFromStorageServer(data);
+						readFromStorageServer(data, Constants.TYPE_READ);
+						break;
+					case Constants.TYPE_INFO:
+						readFromStorageServer(data, Constants.TYPE_INFO);
 						break;
 					case Constants.TYPE_WRITE:
 						writeToStorageServer(data);
@@ -60,7 +63,7 @@ public class ClientThread extends Thread {
 		}
 	}
 
-	void readFromStorageServer(String data) {
+	void readFromStorageServer(String data, String type) {
 		String[] splitData = data.split(" ");
 		String address = splitData[0];
 		String filePath = splitData[1];
@@ -70,7 +73,7 @@ public class ClientThread extends Thread {
 		try (Socket storageServer = new Socket(ip, port);
 				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
 				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
-			String message = Constants.TYPE_READ + Constants.DELIMITER + filePath;
+			String message = type + Constants.DELIMITER + filePath;
 			ssOut.writeUTF(message);
 			ssOut.flush();
 			String response = ssIn.readUTF();
@@ -78,8 +81,9 @@ public class ClientThread extends Thread {
 			String result = splitResponse[0];
 			String resData = splitResponse[1];
 			if (result.equals(Constants.RES_SUCCESS)) {
-				System.out.println(filePath + ":");
+				System.out.println("-----------------------");
 				System.out.println(resData);
+				System.out.println("-----------------------");
 			} else {
 				System.out.println(
 						"Sorry, something went wrong and you can't read the specified file right now.\n" + resData);

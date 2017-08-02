@@ -23,7 +23,9 @@ public class ClientMain {
 				if (!command.equals(userChoice)) {
 					String parameter = userChoice.substring(command.length() + 1);
 					if (command.equals(Constants.CMD_REMOVE)) {
-						if (!confirmDirRemoval(parameter)) {
+						String message = "Are you sure you want to remove directory '" + parameter
+								+ "'. All files and directories in it will also be removed.";
+						if (!confirmDirRemoval(message)) {
 							continue;
 						}
 					} else if (command.equals(Constants.CMD_WRITE)) {
@@ -39,6 +41,13 @@ public class ClientMain {
 					}
 
 					request = command + Constants.DELIMITER + parameter;
+				} else if (command.equals(Constants.CMD_INIT)) {
+					String message = "Are you sure you want to initialize the DFS system? That will wipe out all exisitng files and directories!";
+					if (!confirmDirRemoval(message)) {
+						continue;
+					}
+					
+					currentDir = Constants.ROOT_FOLDER_NAME;
 				}
 
 				ClientMain.clientThread.sendMessage(request);
@@ -56,10 +65,11 @@ public class ClientMain {
 
 	private static boolean isLocalFilePathValid(String localPath) {
 		if (!localPath.contains(Constants.FILE_EXTENSION)) {
-			System.out.println("Only text files are allowed (i.e. with file extention " + Constants.FILE_EXTENSION + ")!");
+			System.out.println(
+					"Only text files are allowed (i.e. with file extention " + Constants.FILE_EXTENSION + ")!");
 			return false;
 		}
-		
+
 		File file = new File(localPath);
 		if (file.exists()) {
 			return true;
@@ -69,9 +79,8 @@ public class ClientMain {
 		}
 	}
 
-	private static boolean confirmDirRemoval(String dir) {
-		System.out.println("Are you sure you want to remove directory '" + dir
-				+ "'. All files and directories in it will also be removed.");
+	private static boolean confirmDirRemoval(String message) {
+		System.out.println(message);
 		System.out.println("yes/no");
 		String answer = userInput.nextLine().toLowerCase();
 		if (answer.equals("yes")) {

@@ -36,6 +36,9 @@ public class NamingServerThread extends Thread {
 					case Constants.TYPE_DELETE:
 						onDeleteCommand(message);
 						break;
+					case Constants.TYPE_HEARTBEAT:
+						send(Constants.RES_HEARTBEAT);
+						break;
 					default:
 						break;
 					}
@@ -51,10 +54,12 @@ public class NamingServerThread extends Thread {
 		String filePath = StorageServerMain.port + "/" + message.split(Constants.DELIMITER)[1];
 		StringBuilder response = new StringBuilder();
 		File file = new File(filePath);
+		File directory = file.getParentFile();
 		if (file.exists()) {
 			if (file.delete()) {
 				response.append(Constants.RES_SUCCESS);
 				response.append(Constants.DELIMITER);
+				deleteEmptyDirectories(directory);
 			} else {
 				response.append(Constants.RES_ERROR);
 				response.append(Constants.DELIMITER);
@@ -67,6 +72,20 @@ public class NamingServerThread extends Thread {
 		}
 
 		send(response.toString());
+	}
+	
+	private void deleteEmptyDirectories(File directory){
+		String name = directory.getName();
+		if(name.equals(Constants.ROOT_FOLDER_NAME)){
+			return;
+		}
+		
+		File parent = directory.getParentFile();
+		File[] children = directory.listFiles();
+		if(children.length <= 0){
+			directory.delete();
+			deleteEmptyDirectories(parent);
+		}
 	}
 
 	void send(String message) {
