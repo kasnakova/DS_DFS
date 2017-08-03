@@ -6,14 +6,14 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.util.HashMap;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientMain {
 	static ClientThread clientThread;
 	final static Scanner userInput = new Scanner(System.in);
 	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
-	static HashMap<String, File> chunksToBeWritten;
+	static ConcurrentHashMap<String, File> chunksToBeWritten;
 	static String localFilePath = null;
 	static boolean shouldExit = false;
 
@@ -92,7 +92,7 @@ public class ClientMain {
 	public static void removeChunk(String path) {
 		File file = chunksToBeWritten.remove(path);
 		ClientLogger.log("Removing chunk - " + file.getAbsolutePath());
-		if (file != null) {
+		if (file != null && path.contains(Constants.FORBIDDEN_SYMBOL)) {
 			file.delete();
 		}
 	}
@@ -109,7 +109,7 @@ public class ClientMain {
 				chunksToBeWritten = null;
 			}
 		} else {
-			chunksToBeWritten = new HashMap<String, File>();
+			chunksToBeWritten = new ConcurrentHashMap<String, File>();
 			chunksToBeWritten.put(dfsPath, file);
 		}
 
@@ -154,9 +154,9 @@ public class ClientMain {
 		}
 	}
 
-	private static HashMap<String, File> splitFile(File file, String dfsPath) throws IOException {
+	private static ConcurrentHashMap<String, File> splitFile(File file, String dfsPath) throws IOException {
 		int counter = 1;
-		HashMap<String, File> files = new HashMap<String, File>();
+		ConcurrentHashMap<String, File> files = new ConcurrentHashMap<String, File>();
 		String eof = System.lineSeparator();
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
 			String line = br.readLine();
