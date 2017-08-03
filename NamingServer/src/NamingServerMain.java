@@ -8,12 +8,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class NamingServerMain {
 	private static ConcurrentHashMap<String, NamingServerUser> storageServers = new ConcurrentHashMap<String, NamingServerUser>();
+	public static ReplicaDealer replicaDealer;
 
 	public static void main(String[] args) {
 		// Starting server
 		ServerSocket servSock;
 		try {
 			servSock = new ServerSocket(Constants.NAMING_SERVER_PORT);
+			replicaDealer = new ReplicaDealer();
+			replicaDealer.start();
 		} catch (IOException e) {
 			System.err.println("Can't start naming server");
 			return;
@@ -46,6 +49,26 @@ public class NamingServerMain {
 	public static NamingServerUser getStorageServerByAddress(String storageServerAddress){
 		return storageServers.get(storageServerAddress);
 	}
+
+	public static boolean isAddressValid(String address){
+		return storageServers.get(address) != null;
+	}
+	
+	public static synchronized long getAvailableStorageSize(){
+		long size = 0;
+		for(NamingServerUser storage : storageServers.values()){
+			storage.send(Constants.TYPE_SIZE);
+			try {
+				String currentSize = storage.in.readUTF();
+				size += Long.parseLong(currentSize);
+			} catch (IOException e) {
+				System.err.println("Could not get the size of a storage server.");
+				e.printStackTrace();
+			}
+		}
+		
+		return size;
+	}
 	
 	public static void removeStorageServer(NamingServerUser user){
 		String key = null;
@@ -62,13 +85,16 @@ public class NamingServerMain {
 	}
 	
 	public static String getAvailableStorageServerForWriting(){
-		//TODO: make it choose according to available memory
+		return getAvailableStorageServerForWriting("");
+	}
+	
+	public static String getAvailableStorageServerForWriting(String except){
 		Enumeration<String> addresses = storageServers.keys();
 		int rand = new Random().nextInt(storageServers.size());
 		while(addresses.hasMoreElements()){
 			String address = addresses.nextElement();
 			rand--;
-			if(rand <= 0){
+			if(rand <= 0 && !address.equals(except)){
 				return address;
 			}
 		}

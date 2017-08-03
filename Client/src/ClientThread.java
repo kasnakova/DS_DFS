@@ -26,7 +26,7 @@ public class ClientThread extends Thread {
 
 	public void run() {
 		try {
-			while (true) {
+			while (!ClientMain.shouldExit) {
 				String message = this.in.readUTF();
 				String[] split = message.split(Constants.DELIMITER);
 				if (split.length == 2) {
@@ -58,7 +58,6 @@ public class ClientThread extends Thread {
 				ClientMain.printCommandLine();
 			}
 		} catch (IOException e) {
-			System.err.println("CONNECTION LOST");
 			this.close();
 		}
 	}

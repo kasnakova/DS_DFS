@@ -3,6 +3,9 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
 
 public class NamingServerThread extends Thread {
 	private Socket namingServerSocket;
@@ -29,15 +32,20 @@ public class NamingServerThread extends Thread {
 			while (true) {
 				String message = this.namingServerIn.readUTF();
 				String[] split = message.split(Constants.DELIMITER);
-				if (split.length == 2) {
+				if (split.length >= 1) {
 					String type = split[0];
-					String data = split[1];
 					switch (type) {
 					case Constants.TYPE_DELETE:
 						onDeleteCommand(message);
 						break;
 					case Constants.TYPE_HEARTBEAT:
-						send(Constants.RES_HEARTBEAT);
+						//onHeartbeat();
+						break;
+					case Constants.TYPE_SIZE:
+						onSize();
+						break;
+					case Constants.TYPE_REPLICA:
+						onReplica(split[1], split[2]);
 						break;
 					default:
 						break;
@@ -49,7 +57,57 @@ public class NamingServerThread extends Thread {
 			this.close();
 		}
 	}
+	
+	private void onHeartbeat(){
+		send(Constants.RES_HEARTBEAT);
+	}
 
+	private void onSize(){
+		String filePath = StorageServerMain.port + "/" + Constants.ROOT_FOLDER_NAME;
+		File file = new File(filePath);
+		System.out.println("MEMORY: " + file.getUsableSpace());
+		send(String.valueOf(file.getUsableSpace()));
+	}
+	
+	private void onReplica(String filePath, String address){
+		String localFilePath = StorageServerMain.port + "/" + filePath;
+		String[] splitAddress = address.split(":");
+		String ip = splitAddress[0];
+		int port = Integer.parseInt(splitAddress[1]);
+		try (Socket storageServer = new Socket(ip, port);
+				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
+				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
+			List<String> fileContents = Files.readAllLines(Paths.get(localFilePath));
+			StringBuilder contents = new StringBuilder();
+			for (String line : fileContents) {
+				contents.append(line);
+				contents.append(System.getProperty("line.separator"));
+			}
+
+			String message = Constants.TYPE_WRITE + Constants.DELIMITER + filePath + Constants.DELIMITER
+					+ contents.toString();
+			ssOut.writeUTF(message);
+			ssOut.flush();
+			String response = ssIn.readUTF();
+			String[] splitResponse = response.split(Constants.DELIMITER);
+			String result = splitResponse[0];
+			String resData = splitResponse[1];
+			if (result.equals(Constants.RES_SUCCESS)) {
+				System.out.println("Replica on " + address + ": " + resData);
+				String namingServerMessage = Constants.TYPE_SUCCESS_REPLICA_WRITE + Constants.DELIMITER + address
+						+ Constants.DELIMITER + filePath;
+				send(namingServerMessage);
+			} else {
+				//TODO: add to the queue
+				System.out.println("Sorry, something went wrong and your replica was not created.\n" + resData);
+			}
+		} catch (IOException e) {
+			//TODO: add to the queue
+			System.err.println("Sorry, replica not created because could not read the specified file, try again later!");
+			System.err.println(e.getMessage());
+		}
+	}
+	
 	private void onDeleteCommand(String message) {
 		String filePath = StorageServerMain.port + "/" + message.split(Constants.DELIMITER)[1];
 		StringBuilder response = new StringBuilder();

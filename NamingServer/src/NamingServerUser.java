@@ -71,10 +71,10 @@ public class NamingServerUser extends Thread {
 			try {
 				Thread.sleep(Constants.HEARTBEAT_INTERVAL_MILIS);
 				this.out.writeUTF(Constants.TYPE_HEARTBEAT + Constants.DELIMITER + Constants.TYPE_HEARTBEAT);
-				String response = this.in.readUTF();
-				if (!response.equals(Constants.RES_HEARTBEAT)) {
-					onNotRespondingStorageServer();
-				}
+				// String response = this.in.readUTF();
+				// if (!response.equals(Constants.RES_HEARTBEAT)) {
+				// onNotRespondingStorageServer();
+				// }
 			} catch (InterruptedException e) {
 				System.err.println("Exception during heartbeating.");
 				e.printStackTrace();
@@ -101,6 +101,12 @@ public class NamingServerUser extends Thread {
 			} else {
 				List<String> content = Files.readAllLines(Paths.get(path));
 				String address = content.get(0).trim();
+				if (!NamingServerMain.isAddressValid(address)) {
+					if (content.size() > 1) {
+						address = content.get(1).trim();
+					}
+				}
+
 				response = type + Constants.DELIMITER + address + " " + path;
 			}
 		} else {
@@ -135,7 +141,6 @@ public class NamingServerUser extends Thread {
 		String path = this.currentDir + "/" + fileName;
 		File file = new File(path);
 		response += deleteFile(file);
-
 		send(response);
 	}
 
@@ -147,23 +152,22 @@ public class NamingServerUser extends Thread {
 			if (!file.isDirectory()) {
 				try {
 					List<String> content = Files.readAllLines(Paths.get(path));
-					String address = content.get(0).trim();
-					NamingServerUser storage = NamingServerMain.getStorageServerByAddress(address);
-					if (storage != null) {
-						storage.out.writeUTF(Constants.TYPE_DELETE + Constants.DELIMITER + path);
-						String storageResponse = storage.in.readUTF();
-						String[] splitStorageResponse = storageResponse.split(Constants.DELIMITER);
-						String result = splitStorageResponse[0];
-						if (result.equals(Constants.RES_SUCCESS)) {
-							if (file.delete()) {
+					for (int a = 0; a < content.size(); a++) {
+						String address = content.get(a).trim();
+						NamingServerUser storage = NamingServerMain.getStorageServerByAddress(address);
+						if (storage != null) {
+							storage.out.writeUTF(Constants.TYPE_DELETE + Constants.DELIMITER + path);
+							String storageResponse = storage.in.readUTF();
+							String[] splitStorageResponse = storageResponse.split(Constants.DELIMITER);
+							String result = splitStorageResponse[0];
+							if (result.equals(Constants.RES_SUCCESS)) {
+								file.delete();
 								response += "'" + fileName + "' was successfully deleted\n";
+
 							} else {
-								response += "Something went wrong and '" + fileName
-										+ "' could not be deleted from the index.";
+								String error = splitStorageResponse[1];
+								response += "'" + fileName + "' not successfully deleted.\n" + error + "\n";
 							}
-						} else {
-							String error = splitStorageResponse[1];
-							response += "'" + fileName + "' not successfully deleted.\n" + error + "\n";
 						}
 					}
 				} catch (IOException e) {
@@ -243,15 +247,24 @@ public class NamingServerUser extends Thread {
 		send(response);
 	}
 
-	private void onInitCommand(){
+	private void onInitCommand() {
 		this.currentDir = Constants.ROOT_FOLDER_NAME;
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
 		File file = new File(Constants.ROOT_FOLDER_NAME);
 		response += deleteDirectory(file);
-		response += "----Initialization completed!----";
+		response += "----Initialization completed!----\n";
+		Long availableSize = NamingServerMain.getAvailableStorageSize();
+		response += "----Available size: " + formatSize(availableSize) + "----";
 		send(response);
 	}
-	
+
+	private static String formatSize(long v) {
+		if (v < 1024)
+			return v + " B";
+		int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
+		return String.format("%.1f %sB", (double) v / (1L << (z * 10)), " KMGTPE".charAt(z));
+	}
+
 	private void onRemoveCommand(String message) throws IOException {
 		String fileName = message.split(Constants.DELIMITER)[1];
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
@@ -304,7 +317,7 @@ public class NamingServerUser extends Thread {
 		send(Constants.RES_SUCCESS);
 	}
 
-	private void successInWritingToStorageServer(String message) throws IOException {
+	public void successInWritingToStorageServer(String message) throws IOException {
 		String[] data = message.split(Constants.DELIMITER);
 		String address = data[1];
 		String path = data[2];
@@ -315,11 +328,12 @@ public class NamingServerUser extends Thread {
 			if (file.createNewFile()) {
 				Files.write(Paths.get(path), address.getBytes());
 				response += "File '" + path + "' was successfully indexed.";
+				NamingServerMain.replicaDealer.addToQueue(path, address);
 			} else {
 				response += "Failed to index file '" + path + "'";
 			}
 		} else {
-			response += "File '" + path + "' already exists.";
+			response += "Failed to index '" + path + "' because an index already exists";
 		}
 
 		send(response);

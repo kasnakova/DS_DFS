@@ -1,4 +1,5 @@
 import java.io.File;
+import java.util.List;
 import java.util.Scanner;
 
 public class ClientMain {
@@ -7,6 +8,7 @@ public class ClientMain {
 	final static Scanner userInput = new Scanner(System.in);
 	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
 	static String localFilePath = null;
+	static boolean shouldExit = false;
 
 	public static void main(String[] args) {
 		String userChoice;
@@ -32,6 +34,8 @@ public class ClientMain {
 						if (isLocalFilePathValid(userChoiceSplit[2])) {
 							parameter = userChoiceSplit[1];
 							localFilePath = userChoiceSplit[2];
+							
+							continue;
 						} else {
 							continue;
 						}
@@ -47,7 +51,10 @@ public class ClientMain {
 						continue;
 					}
 					
-					currentDir = Constants.ROOT_FOLDER_NAME;
+					currentDir = Constants.ROOT_FOLDER_NAME + ">";
+				} else if(command.equals(Constants.CMD_EXIT)){
+					shouldExit = true;
+					break;
 				}
 
 				ClientMain.clientThread.sendMessage(request);
@@ -57,8 +64,13 @@ public class ClientMain {
 		} while (!userChoice.equalsIgnoreCase(Constants.CMD_EXIT));
 
 		userInput.close();
+		clientThread.close();
 	}
 
+//	private static List<String> getChunks(String localFilePath){
+//		
+//	}
+//	
 	public static void printCommandLine() {
 		System.out.println(ClientMain.currentDir.toUpperCase());
 	}
