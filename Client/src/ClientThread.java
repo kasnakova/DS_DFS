@@ -4,6 +4,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileReader;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 
 public class ClientThread extends Thread {
@@ -29,7 +32,7 @@ public class ClientThread extends Thread {
 			while (!ClientMain.shouldExit) {
 				String message = this.in.readUTF();
 				String[] split = message.split(Constants.DELIMITER);
-				if (split.length == 2) {
+				if (split.length >= 2) {
 					String type = split[0];
 					String data = split[1];
 					switch (type) {
@@ -40,10 +43,10 @@ public class ClientThread extends Thread {
 						ClientMain.currentDir = data + ">";
 						break;
 					case Constants.TYPE_READ:
-						readFromStorageServer(data, Constants.TYPE_READ);
+						readFromStorageServer(message, Constants.TYPE_READ);
 						break;
 					case Constants.TYPE_INFO:
-						readFromStorageServer(data, Constants.TYPE_INFO);
+						readFromStorageServer(message, Constants.TYPE_INFO);
 						break;
 					case Constants.TYPE_WRITE:
 						writeToStorageServer(data);
@@ -63,33 +66,52 @@ public class ClientThread extends Thread {
 	}
 
 	void readFromStorageServer(String data, String type) {
-		String[] splitData = data.split(" ");
-		String address = splitData[0];
-		String filePath = splitData[1];
-		String[] splitAddress = address.split(":");
-		String ip = splitAddress[0];
-		int port = Integer.parseInt(splitAddress[1]);
-		try (Socket storageServer = new Socket(ip, port);
-				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
-				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
-			String message = type + Constants.DELIMITER + filePath;
-			ssOut.writeUTF(message);
-			ssOut.flush();
-			String response = ssIn.readUTF();
-			String[] splitResponse = response.split(Constants.DELIMITER);
-			String result = splitResponse[0];
-			String resData = splitResponse[1];
-			if (result.equals(Constants.RES_SUCCESS)) {
-				System.out.println("-----------------------");
-				System.out.println(resData);
-				System.out.println("-----------------------");
-			} else {
-				System.out.println(
-						"Sorry, something went wrong and you can't read the specified file right now.\n" + resData);
+		String[] split = data.split(Constants.DELIMITER);
+		StringBuilder content = new StringBuilder();
+		boolean success = true;
+		for (int i = 1; i < split.length; i++) {
+			String[] splitData = split[i].split(" ");
+			String address = splitData[0];
+			String filePath = splitData[1];
+			String[] splitAddress = address.split(":");
+			String ip = splitAddress[0];
+			int port = Integer.parseInt(splitAddress[1]);
+			try (Socket storageServer = new Socket(ip, port);
+					DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
+					DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
+				String message = type + Constants.DELIMITER + filePath;
+				ssOut.writeUTF(message);
+				ssOut.flush();
+				String response = ssIn.readUTF();
+				String[] splitResponse = response.split(Constants.DELIMITER);
+				String result = splitResponse[0];
+				String resData = splitResponse[1];
+				if (result.equals(Constants.RES_SUCCESS)) {
+					content.append(resData);
+					content.append(System.getProperty("line.separator"));
+					content.append(System.getProperty("line.separator"));
+				} else {
+					System.out.println(
+							"Sorry, something went wrong and you can't read the specified file right now.\n" + resData);
+					success = false;
+					break;
+				}
+			} catch (IOException e) {
+				System.err.println("Sorry, could not read the specified file, try again later!");
+				System.err.println(e.getMessage());
+				success = false;
+				break;
 			}
-		} catch (IOException e) {
-			System.err.println("Sorry, could not read the specified file, try again later!");
-			System.err.println(e.getMessage());
+		}
+
+		if (success) {
+			System.out.println("-----------------------");
+			if(type.equals(Constants.TYPE_INFO) && split.length > 2){
+				System.out.println("This file is chunked. Below is information on the separate chunks:");
+			}
+			
+			System.out.println(content.toString());
+			System.out.println("-----------------------");
 		}
 	}
 
@@ -100,17 +122,28 @@ public class ClientThread extends Thread {
 		String[] splitAddress = address.split(":");
 		String ip = splitAddress[0];
 		int port = Integer.parseInt(splitAddress[1]);
+		String chunkKey = filePath.substring(filePath.lastIndexOf(Constants.DIR_SEPARATOR) + 1);
 		try (Socket storageServer = new Socket(ip, port);
 				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
 				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
-			List<String> fileContents = Files.readAllLines(Paths.get(ClientMain.localFilePath));
+			File file = ClientMain.getChunk(chunkKey);
 			StringBuilder contents = new StringBuilder();
-			for (String line : fileContents) {
-				contents.append(line);
-				contents.append(System.getProperty("line.separator"));
+			boolean isChunk = true;
+			if (file == null) {
+				file = new File(ClientMain.localFilePath);
+				isChunk = false;
 			}
 
-			String message = Constants.TYPE_WRITE + Constants.DELIMITER + filePath + Constants.DELIMITER
+			try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+				String line;
+				while ((line = br.readLine()) != null) {
+					contents.append(line);
+					contents.append(System.getProperty("line.separator"));
+				}
+			}
+
+			String remoteFilePath = Utils.getPathName(filePath);
+			String message = Constants.TYPE_WRITE + Constants.DELIMITER + remoteFilePath + Constants.DELIMITER
 					+ contents.toString();
 			ssOut.writeUTF(message);
 			ssOut.flush();
@@ -125,6 +158,10 @@ public class ClientThread extends Thread {
 				sendMessage(namingServerMessage);
 			} else {
 				System.out.println("Sorry, something went wrong and your new file was not saved to DFS.\n" + resData);
+			}
+
+			if(isChunk){
+				ClientMain.removeChunk(chunkKey);
 			}
 		} catch (IOException e) {
 			System.err.println("Sorry, could not read the specified file, try again later!");

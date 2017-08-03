@@ -32,12 +32,18 @@ public class Constants {
 	public static final String RES_HEARTBEAT = "I_am_alive";
 
 	public static final String DELIMITER = "#`~";
+	public static final String DIR_SEPARATOR = "/";
 	
 	public static final String FILE_EXTENSION = ".txt";
+	
+	public static final String FORBIDDEN_SYMBOL = "_";
 	
 	public static final String NAMING_SERVER_HOST = "127.0.0.1";
 	public static final int NAMING_SERVER_PORT = 1111;
 	
 	public static final int HEARTBEAT_INTERVAL_MILIS = 1000;
+	public static final int HEARTBEAT_TRIES_COUNT = 5;
 	public static final int REPLICA_INTERVAL_MILIS = 5000;
+	
+	public static final int MAX_CHUNK_SIZE_BYTES = 1024;
 }

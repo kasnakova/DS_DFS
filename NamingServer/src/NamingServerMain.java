@@ -70,7 +70,7 @@ public class NamingServerMain {
 		return size;
 	}
 	
-	public static void removeStorageServer(NamingServerUser user){
+	public static String removeStorageServer(NamingServerUser user){
 		String key = null;
 		for(String k : storageServers.keySet()){
 			if(user.equals(storageServers.get(k))){
@@ -81,7 +81,10 @@ public class NamingServerMain {
 		
 		if(key != null){
 			storageServers.remove(key);
+			return key;
 		}
+		
+		return null;
 	}
 	
 	public static String getAvailableStorageServerForWriting(){

@@ -1,5 +1,12 @@
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
-import java.util.List;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Scanner;
 
 public class ClientMain {
@@ -7,6 +14,7 @@ public class ClientMain {
 			Constants.NAMING_SERVER_PORT);
 	final static Scanner userInput = new Scanner(System.in);
 	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
+	static HashMap<String, File> chunksToBeWritten;
 	static String localFilePath = null;
 	static boolean shouldExit = false;
 
@@ -34,7 +42,7 @@ public class ClientMain {
 						if (isLocalFilePathValid(userChoiceSplit[2])) {
 							parameter = userChoiceSplit[1];
 							localFilePath = userChoiceSplit[2];
-							
+							chunk(localFilePath, parameter);
 							continue;
 						} else {
 							continue;
@@ -50,9 +58,9 @@ public class ClientMain {
 					if (!confirmDirRemoval(message)) {
 						continue;
 					}
-					
+
 					currentDir = Constants.ROOT_FOLDER_NAME + ">";
-				} else if(command.equals(Constants.CMD_EXIT)){
+				} else if (command.equals(Constants.CMD_EXIT)) {
 					shouldExit = true;
 					break;
 				}
@@ -67,10 +75,38 @@ public class ClientMain {
 		clientThread.close();
 	}
 
-//	private static List<String> getChunks(String localFilePath){
-//		
-//	}
-//	
+	public static File getChunk(String path) {
+		return chunksToBeWritten.get(path);
+	}
+
+	public static void removeChunk(String path) {
+		File file = chunksToBeWritten.remove(path);
+		if (file != null) {
+			file.delete();
+		}
+	}
+
+	private static void chunk(String localFilePath, String dfsPath) {
+		File file = new File(localFilePath);
+		long size = file.length();
+		if (size > Constants.MAX_CHUNK_SIZE_BYTES) {
+			try {
+				chunksToBeWritten = splitFile(file, dfsPath);
+			} catch (IOException e) {
+				System.err.println("Sorry, file '" + localFilePath
+						+ "' can't be written to the DFS right now. There is a poblem with its size.");
+				chunksToBeWritten = null;
+			}
+		} else {
+			chunksToBeWritten = new HashMap<String, File>();
+			chunksToBeWritten.put(dfsPath, file);
+		}
+
+		for (String path : chunksToBeWritten.keySet()) {
+			ClientMain.clientThread.sendMessage(Constants.CMD_WRITE + Constants.DELIMITER + path);
+		}
+	}
+
 	public static void printCommandLine() {
 		System.out.println(ClientMain.currentDir.toUpperCase());
 	}
@@ -103,6 +139,34 @@ public class ClientMain {
 			System.out.println("You should have answered with 'yes' or 'no'.");
 			return false;
 		}
+	}
+
+	private static HashMap<String, File> splitFile(File file, String dfsPath) throws IOException {
+		int counter = 1;
+		HashMap<String, File> files = new HashMap<String, File>();
+		String eof = System.lineSeparator();
+		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+			String line = br.readLine();
+			while (line != null) {
+				dfsPath = dfsPath.replace(Constants.FILE_EXTENSION, "");
+				String newFileName = dfsPath + Constants.FORBIDDEN_SYMBOL + String.format("%03d", counter++)
+						+ Constants.FILE_EXTENSION;
+				File newFile = new File(file.getParent(), newFileName);
+				try (OutputStream out = new BufferedOutputStream(new FileOutputStream(newFile))) {
+					int fileSize = 0;
+					while (line != null) {
+						byte[] bytes = (line + eof).getBytes(Charset.defaultCharset());
+						if (fileSize + bytes.length > Constants.MAX_CHUNK_SIZE_BYTES)
+							break;
+						out.write(bytes);
+						fileSize += bytes.length;
+						line = br.readLine();
+					}
+				}
+				files.put(newFileName, newFile);
+			}
+		}
+		return files;
 	}
 
 	private static String getMenuString() {

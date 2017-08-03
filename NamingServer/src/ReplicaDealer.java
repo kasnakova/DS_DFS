@@ -46,10 +46,15 @@ public class ReplicaDealer extends Thread {
 							System.out.println("Failed to index the replica of " + path + " on " + address + " as an index does not exist at all.");
 						}
 					} else {
-						
+						System.out.println("Error in creating a replica of file '" + item.getFilePath() + "'.");
+						replicaQueue.add(item);
+						break;
 					}
 				} catch (IOException e) {
+					System.out.println("Error in creating a replica of file '" + item.getFilePath() + "'.");
+					replicaQueue.add(item);
 					e.printStackTrace();
+					break;
 				}
 			}
 		}

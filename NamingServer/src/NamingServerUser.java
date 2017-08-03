@@ -8,7 +8,10 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+
+import org.omg.CORBA.RepositoryIdHelper;
 
 public class NamingServerUser extends Thread {
 	String currentDir;
@@ -16,6 +19,7 @@ public class NamingServerUser extends Thread {
 	DataInputStream in;
 	DataOutputStream out;
 	boolean isStorageServerConnection = false;
+	boolean isClosed = false;
 
 	public NamingServerUser(Socket s) throws IOException {
 		this.mySocket = s;
@@ -67,33 +71,70 @@ public class NamingServerUser extends Thread {
 			}
 		} while (!isStorageServerConnection);
 
+		int tries = 0;
 		do {
 			try {
 				Thread.sleep(Constants.HEARTBEAT_INTERVAL_MILIS);
 				this.out.writeUTF(Constants.TYPE_HEARTBEAT + Constants.DELIMITER + Constants.TYPE_HEARTBEAT);
-				// String response = this.in.readUTF();
-				// if (!response.equals(Constants.RES_HEARTBEAT)) {
-				// onNotRespondingStorageServer();
-				// }
+				tries = 0;
 			} catch (InterruptedException e) {
+				tries++;
 				System.err.println("Exception during heartbeating.");
 				e.printStackTrace();
 			} catch (IOException ex) {
+				tries++;
+			}
+			
+			if(tries > Constants.HEARTBEAT_TRIES_COUNT){
 				onNotRespondingStorageServer();
 				closeConnection();
 			}
-		} while (true);
+		} while (!isClosed);
 	}
 
 	private void onNotRespondingStorageServer() {
 		// move files from this server
 		// remove the server from the list
+		String address = NamingServerMain.removeStorageServer(this);
+		File file = new File(Constants.ROOT_FOLDER_NAME);
+		createReplicas(file, address);
+		System.out.println("-------------------Heartbeat to " + address + " not received!");
+	}
+	
+	private void createReplicas(File file, String failedAddress){
+		File[] children = file.listFiles();
+		for(int i = 0; i < children.length; i++){
+			File child = children[i];
+			if(child.isDirectory()){
+				createReplicas(child, failedAddress);
+			} else {
+				try {
+					List<String> addresses = Files.readAllLines(Paths.get(child.getAbsolutePath()));
+					if(addresses.contains(failedAddress)){
+						addresses.remove(failedAddress);
+						if(addresses.size() > 0){
+							String currAddress = addresses.get(0);
+							Files.write(Paths.get(child.getAbsolutePath()), currAddress.getBytes());
+							String filePath = child.getAbsolutePath()
+									.substring(child.getAbsolutePath().indexOf(Constants.ROOT_FOLDER_NAME));
+							NamingServerMain.replicaDealer.addToQueue(filePath, currAddress);
+						}else{
+							System.out.println("Can't create a replica of " + child.getAbsolutePath() + 
+									" as it is present only on a failed server.");
+						}
+					}
+				} catch (IOException e) {
+					System.out.println("Can't create replicas on storage server fail because can't read file " + child.getAbsolutePath());
+				}
+				
+			}
+		}
 	}
 
 	private void onReadCommand(String message, String type) throws IOException {
 		String fileName = message.split(Constants.DELIMITER)[1];
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
-		String path = this.currentDir + "/" + fileName;
+		String path = this.currentDir + Constants.DIR_SEPARATOR + fileName;
 		File file = new File(path);
 		if (file.exists()) {
 			if (file.isDirectory()) {
@@ -110,7 +151,28 @@ public class NamingServerUser extends Thread {
 				response = type + Constants.DELIMITER + address + " " + path;
 			}
 		} else {
-			response += "Can't read file '" + fileName + "' because it does not exist in the current directory.";
+			String dirName = Constants.FORBIDDEN_SYMBOL + fileName.replaceAll(Constants.FILE_EXTENSION, "");
+			String dirPath = this.currentDir + Constants.DIR_SEPARATOR + dirName;
+			File dir = new File(dirPath);
+			if (dir.exists()) {
+				String[] files = dir.list();
+				Arrays.sort(files);
+				response = type;
+				for (String f : files) {
+					String currName = this.currentDir + Constants.DIR_SEPARATOR + dirName + Constants.DIR_SEPARATOR + f;
+					List<String> content = Files.readAllLines(Paths.get(currName));
+					String address = content.get(0).trim();
+					if (!NamingServerMain.isAddressValid(address)) {
+						if (content.size() > 1) {
+							address = content.get(1).trim();
+						}
+					}
+
+					response += Constants.DELIMITER + address + " " + currName;
+				}
+			} else {
+				response += "Can't read file '" + fileName + "' because it does not exist in the current directory.";
+			}
 		}
 
 		send(response);
@@ -178,7 +240,13 @@ public class NamingServerUser extends Thread {
 				response += "'" + fileName + "' was not deleted since it is a directory\n";
 			}
 		} else {
-			response += "Can't remove '" + fileName + "' it already does not exist in the current directory.\n";
+			String dirPath = path.replace(fileName, Constants.FORBIDDEN_SYMBOL + fileName.replaceAll(Constants.FILE_EXTENSION, ""));
+			File directory = new File(dirPath);
+			if (directory.exists()) {
+				response += deleteDirectory(directory);
+			} else {
+				response += "Can't remove '" + fileName + "' it already does not exist in the current directory.\n";
+			}
 		}
 
 		return response;
@@ -188,7 +256,7 @@ public class NamingServerUser extends Thread {
 		String dirName = message.split(Constants.DELIMITER)[1];
 		String response;
 		if (dirName.equals("..")) {
-			int index = this.currentDir.lastIndexOf("/");
+			int index = this.currentDir.lastIndexOf(Constants.DIR_SEPARATOR);
 			if (index == -1) {
 				this.currentDir = Constants.ROOT_FOLDER_NAME;
 			} else {
@@ -219,7 +287,12 @@ public class NamingServerUser extends Thread {
 		response.append(Constants.DELIMITER);
 		if (files.length > 0) {
 			for (File file : files) {
-				response.append(file.getName());
+				String name = file.getName();
+				if (name.startsWith(Constants.FORBIDDEN_SYMBOL)) {
+					name = name.substring(1) + Constants.FILE_EXTENSION;
+				}
+
+				response.append(name);
 				response.append(System.getProperty("line.separator"));
 			}
 		} else {
@@ -321,14 +394,15 @@ public class NamingServerUser extends Thread {
 		String[] data = message.split(Constants.DELIMITER);
 		String address = data[1];
 		String path = data[2];
+		String localPath = Utils.getPathName(path);
 		String response = Constants.TYPE_MSG + Constants.DELIMITER;
-		File file = new File(path);
+		File file = new File(localPath);
 		if (!file.exists()) {
 			file.getParentFile().mkdirs();
 			if (file.createNewFile()) {
-				Files.write(Paths.get(path), address.getBytes());
+				Files.write(Paths.get(localPath), address.getBytes());
 				response += "File '" + path + "' was successfully indexed.";
-				NamingServerMain.replicaDealer.addToQueue(path, address);
+				NamingServerMain.replicaDealer.addToQueue(localPath, address);
 			} else {
 				response += "Failed to index file '" + path + "'";
 			}
@@ -352,6 +426,7 @@ public class NamingServerUser extends Thread {
 	public void closeConnection() {
 		try {
 			NamingServerMain.removeStorageServer(this);
+			isClosed = true;
 			if (this.in != null)
 				in.close();
 			if (this.out != null)

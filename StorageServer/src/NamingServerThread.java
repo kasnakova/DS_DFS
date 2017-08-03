@@ -1,6 +1,8 @@
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.file.Files;
@@ -76,10 +78,11 @@ public class NamingServerThread extends Thread {
 		int port = Integer.parseInt(splitAddress[1]);
 		try (Socket storageServer = new Socket(ip, port);
 				DataInputStream ssIn = new DataInputStream(storageServer.getInputStream());
-				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream())) {
-			List<String> fileContents = Files.readAllLines(Paths.get(localFilePath));
+				DataOutputStream ssOut = new DataOutputStream(storageServer.getOutputStream());
+				BufferedReader reader = new BufferedReader(new FileReader(localFilePath))) {
 			StringBuilder contents = new StringBuilder();
-			for (String line : fileContents) {
+			String line;
+			while ((line = reader.readLine()) != null) {
 				contents.append(line);
 				contents.append(System.getProperty("line.separator"));
 			}
@@ -98,14 +101,18 @@ public class NamingServerThread extends Thread {
 						+ Constants.DELIMITER + filePath;
 				send(namingServerMessage);
 			} else {
-				//TODO: add to the queue
+				onReplicaCreationFail();
 				System.out.println("Sorry, something went wrong and your replica was not created.\n" + resData);
 			}
 		} catch (IOException e) {
-			//TODO: add to the queue
-			System.err.println("Sorry, replica not created because could not read the specified file, try again later!");
+			onReplicaCreationFail();
+			System.err.println("Sorry, replica not created because the specified file could not be read, try again later!\n" + e.getMessage());
 			System.err.println(e.getMessage());
 		}
+	}
+	
+	private void onReplicaCreationFail(){
+		send(Constants.RES_ERROR);
 	}
 	
 	private void onDeleteCommand(String message) {
