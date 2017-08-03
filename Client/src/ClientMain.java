@@ -10,8 +10,7 @@ import java.util.HashMap;
 import java.util.Scanner;
 
 public class ClientMain {
-	final static ClientThread clientThread = new ClientThread(Constants.NAMING_SERVER_HOST,
-			Constants.NAMING_SERVER_PORT);
+	static ClientThread clientThread;
 	final static Scanner userInput = new Scanner(System.in);
 	static String currentDir = Constants.ROOT_FOLDER_NAME.toUpperCase() + ">";
 	static HashMap<String, File> chunksToBeWritten;
@@ -19,6 +18,15 @@ public class ClientMain {
 	static boolean shouldExit = false;
 
 	public static void main(String[] args) {
+		String namingServerHost = Constants.NAMING_SERVER_HOST;
+		int namingServerPort = Constants.NAMING_SERVER_PORT;
+		if (args.length > 1) {
+			namingServerHost = args[0];
+			namingServerPort = Integer.parseInt(args[1]);
+		}
+
+		clientThread = new ClientThread(namingServerHost, namingServerPort);
+
 		String userChoice;
 		String menu = getMenuString();
 		System.out.println(menu);
@@ -27,6 +35,7 @@ public class ClientMain {
 			printCommandLine();
 			userChoice = userInput.nextLine().toLowerCase();
 			String[] userChoiceSplit = userChoice.split(" ");
+			ClientLogger.log("Client input - " + userChoice);
 			if (userChoiceSplit.length > 0) {
 				String command = userChoiceSplit[0];
 				String request = command;
@@ -66,6 +75,7 @@ public class ClientMain {
 				}
 
 				ClientMain.clientThread.sendMessage(request);
+				ClientLogger.log("Send to naming server - " + request);
 			} else {
 				System.err.println("Please, enter a valid command!");
 			}
@@ -81,6 +91,7 @@ public class ClientMain {
 
 	public static void removeChunk(String path) {
 		File file = chunksToBeWritten.remove(path);
+		ClientLogger.log("Removing chunk - " + file.getAbsolutePath());
 		if (file != null) {
 			file.delete();
 		}
@@ -103,7 +114,9 @@ public class ClientMain {
 		}
 
 		for (String path : chunksToBeWritten.keySet()) {
-			ClientMain.clientThread.sendMessage(Constants.CMD_WRITE + Constants.DELIMITER + path);
+			String request = Constants.CMD_WRITE + Constants.DELIMITER + path;
+			ClientMain.clientThread.sendMessage(request);
+			ClientLogger.log("Send to naming server - " + request);
 		}
 	}
 

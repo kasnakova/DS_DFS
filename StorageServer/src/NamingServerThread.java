@@ -14,8 +14,8 @@ public class NamingServerThread extends Thread {
 	private DataInputStream namingServerIn;
 	private DataOutputStream namingServerOut;
 
-	public NamingServerThread(int storageServerPort) throws IOException {
-		namingServerSocket = new Socket(Constants.NAMING_SERVER_HOST, Constants.NAMING_SERVER_PORT);
+	public NamingServerThread(int storageServerPort, String namingServerHost, int namingServerPort) throws IOException {
+		namingServerSocket = new Socket(namingServerHost, namingServerPort);
 		namingServerIn = new DataInputStream(namingServerSocket.getInputStream());
 		namingServerOut = new DataOutputStream(namingServerSocket.getOutputStream());
 		namingServerOut.writeUTF(Constants.CMD_REGISTER + Constants.DELIMITER + storageServerPort);

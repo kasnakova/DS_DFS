@@ -13,9 +13,15 @@ public class StorageServerMain {
 	public static void main(String[] args) {
 		ServerSocket servSock;
 		String ip = "unknown";
+		String namingServerHost = Constants.NAMING_SERVER_HOST;
+		int namingServerPort = Constants.NAMING_SERVER_PORT;
 		try {
 			if (args.length > 0) {
 				port = Integer.parseInt(args[0]);
+				if(args.length > 1){
+					namingServerHost = args[1];
+					namingServerPort = Integer.parseInt(args[2]);
+				}
 			} else {
 				System.err.println(
 						"Please, specify the port number on which to run this storage server as program argument!");
@@ -24,7 +30,7 @@ public class StorageServerMain {
 
 			servSock = new ServerSocket(port);
 			ip = servSock.getInetAddress().getHostAddress() + ":" + servSock.getLocalPort();
-			clientThread = new NamingServerThread(port);
+			clientThread = new NamingServerThread(port, namingServerHost, namingServerPort);
 			System.out.println("Storage server started at IP: " + ip);
 		} catch (IOException e) {
 			System.err.println("Can't start storage and register server.\n" + e.getMessage());

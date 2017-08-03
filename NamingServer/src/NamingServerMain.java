@@ -13,8 +13,13 @@ public class NamingServerMain {
 	public static void main(String[] args) {
 		// Starting server
 		ServerSocket servSock;
+		int port = Constants.NAMING_SERVER_PORT;
 		try {
-			servSock = new ServerSocket(Constants.NAMING_SERVER_PORT);
+			if (args.length > 0) {
+				port = Integer.parseInt(args[0]);
+			}
+			
+			servSock = new ServerSocket(port);
 			replicaDealer = new ReplicaDealer();
 			replicaDealer.start();
 		} catch (IOException e) {

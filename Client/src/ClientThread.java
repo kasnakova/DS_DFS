@@ -16,6 +16,7 @@ public class ClientThread extends Thread {
 
 	public ClientThread(String host, int port) {
 		try {
+			ClientLogger.log("Starting CLientThread");
 			this.socket = new Socket(host, port);
 			System.out.println("CONNECTED TO NAMING SERVER");
 			this.in = new DataInputStream(this.socket.getInputStream());
@@ -29,8 +30,10 @@ public class ClientThread extends Thread {
 
 	public void run() {
 		try {
+			ClientLogger.log("CLientThread started");
 			while (!ClientMain.shouldExit) {
 				String message = this.in.readUTF();
+				ClientLogger.log("Received message: " + message);
 				String[] split = message.split(Constants.DELIMITER);
 				if (split.length >= 2) {
 					String type = split[0];
@@ -73,6 +76,7 @@ public class ClientThread extends Thread {
 			String[] splitData = split[i].split(" ");
 			String address = splitData[0];
 			String filePath = splitData[1];
+			ClientLogger.log("Reading from " + address + " file " + filePath);
 			String[] splitAddress = address.split(":");
 			String ip = splitAddress[0];
 			int port = Integer.parseInt(splitAddress[1]);
@@ -97,6 +101,7 @@ public class ClientThread extends Thread {
 					break;
 				}
 			} catch (IOException e) {
+				ClientLogger.log(e);
 				System.err.println("Sorry, could not read the specified file, try again later!");
 				System.err.println(e.getMessage());
 				success = false;
@@ -120,6 +125,7 @@ public class ClientThread extends Thread {
 		String address = splitData[0];
 		String filePath = splitData[1];
 		String[] splitAddress = address.split(":");
+		ClientLogger.log("Writing to " + address + " file " + filePath);
 		String ip = splitAddress[0];
 		int port = Integer.parseInt(splitAddress[1]);
 		String chunkKey = filePath.substring(filePath.lastIndexOf(Constants.DIR_SEPARATOR) + 1);
@@ -140,6 +146,8 @@ public class ClientThread extends Thread {
 					contents.append(line);
 					contents.append(System.getProperty("line.separator"));
 				}
+			}catch (IOException e) {
+				ClientLogger.log(e);
 			}
 
 			String remoteFilePath = Utils.getPathName(filePath);
@@ -164,6 +172,7 @@ public class ClientThread extends Thread {
 				ClientMain.removeChunk(chunkKey);
 			}
 		} catch (IOException e) {
+			ClientLogger.log(e);
 			System.err.println("Sorry, could not read the specified file, try again later!");
 			System.err.println(e.getMessage());
 		}
@@ -171,6 +180,7 @@ public class ClientThread extends Thread {
 
 	void sendMessage(String message) {
 		try {
+			ClientLogger.log("Sending message: " + message);
 			this.out.writeUTF(message);
 			this.out.flush();
 		} catch (IOException e) {

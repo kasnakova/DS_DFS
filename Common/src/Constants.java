@@ -1,6 +1,7 @@
 
 public class Constants {
 	public static final String ROOT_FOLDER_NAME = "root";
+	public static final String CLIENT_LOG_PATH = "log.txt";
 	
 	public static final String CMD_INIT = "init";
 	public static final String CMD_READ = "read";
