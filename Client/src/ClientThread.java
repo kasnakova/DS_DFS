@@ -18,12 +18,12 @@ public class ClientThread extends Thread {
 		try {
 			ClientLogger.log("Starting CLientThread");
 			this.socket = new Socket(host, port);
-			System.out.println("CONNECTED TO NAMING SERVER");
+			System.out.println("\n\nCONNECTED TO NAMING SERVER");
 			this.in = new DataInputStream(this.socket.getInputStream());
 			this.out = new DataOutputStream(this.socket.getOutputStream());
 			this.start();
 		} catch (IOException e) {
-			System.err.println("CAN'T CONNECT TO NAMING SERVER");
+			System.err.println("\n\n****************CAN'T CONNECT TO NAMING SERVER****************");
 			this.close();
 		}
 	}

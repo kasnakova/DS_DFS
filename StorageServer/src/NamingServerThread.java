@@ -40,9 +40,6 @@ public class NamingServerThread extends Thread {
 					case Constants.TYPE_DELETE:
 						onDeleteCommand(message);
 						break;
-					case Constants.TYPE_HEARTBEAT:
-						//onHeartbeat();
-						break;
 					case Constants.TYPE_SIZE:
 						onSize();
 						break;
@@ -60,10 +57,6 @@ public class NamingServerThread extends Thread {
 		}
 	}
 	
-	private void onHeartbeat(){
-		send(Constants.RES_HEARTBEAT);
-	}
-
 	private void onSize(){
 		String filePath = StorageServerMain.port + "/" + Constants.ROOT_FOLDER_NAME;
 		File file = new File(filePath);

@@ -184,7 +184,7 @@ public class ClientMain {
 
 	private static String getMenuString() {
 		StringBuilder menu = new StringBuilder();
-		menu.append("-------Please choose what you would like to do-------\n");
+		menu.append("\n\n-------Please choose what you would like to do-------\n");
 		menu.append(Constants.CMD_INIT
 				+ " - initialize the client storage on a new system (that will delete all previous files and folders and return the available size)\n");
 		menu.append(Constants.CMD_READ

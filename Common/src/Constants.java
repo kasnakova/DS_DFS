@@ -16,7 +16,7 @@ public class Constants {
 	public static final String CMD_REGISTER = "register";
 	
 	public static final String TYPE_MSG = "message";
-	public static final String TYPE_HEARTBEAT = "heartbeat";
+	public static final String TYPE_PING = "ping";
 	public static final String TYPE_SIZE = "size";
 	public static final String TYPE_CURR_DIR = "change_current_dir";
 	public static final String TYPE_READ = "read_from_storage_server";
@@ -30,7 +30,6 @@ public class Constants {
 	
 	public static final String RES_SUCCESS = "success";
 	public static final String RES_ERROR = "error";
-	public static final String RES_HEARTBEAT = "I_am_alive";
 
 	public static final String DELIMITER = "#`~";
 	public static final String DIR_SEPARATOR = "/";
@@ -42,8 +41,8 @@ public class Constants {
 	public static final String NAMING_SERVER_HOST = "127.0.0.1";
 	public static final int NAMING_SERVER_PORT = 1111;
 	
-	public static final int HEARTBEAT_INTERVAL_MILIS = 1000;
-	public static final int HEARTBEAT_TRIES_COUNT = 5;
+	public static final int PING_INTERVAL_MILIS = 1000;
+	public static final int PING_TRIES_COUNT = 5;
 	public static final int REPLICA_INTERVAL_MILIS = 5000;
 	
 	public static final int MAX_CHUNK_SIZE_BYTES = 1024;

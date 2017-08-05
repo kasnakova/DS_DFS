@@ -31,7 +31,6 @@ public class StorageServerMain {
 			servSock = new ServerSocket(port);
 			ip = servSock.getInetAddress().getHostAddress() + ":" + servSock.getLocalPort();
 			clientThread = new NamingServerThread(port, namingServerHost, namingServerPort);
-			System.out.println("Storage server started at IP: " + ip);
 		} catch (IOException e) {
 			System.err.println("Can't start storage and register server.\n" + e.getMessage());
 			return;

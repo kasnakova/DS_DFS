@@ -74,18 +74,18 @@ public class NamingServerUser extends Thread {
 		int tries = 0;
 		do {
 			try {
-				Thread.sleep(Constants.HEARTBEAT_INTERVAL_MILIS);
-				this.out.writeUTF(Constants.TYPE_HEARTBEAT + Constants.DELIMITER + Constants.TYPE_HEARTBEAT);
+				Thread.sleep(Constants.PING_INTERVAL_MILIS);
+				this.out.writeUTF(Constants.TYPE_PING + Constants.DELIMITER + Constants.TYPE_PING);
 				tries = 0;
 			} catch (InterruptedException e) {
 				tries++;
-				System.err.println("Exception during heartbeating.");
+				System.err.println("Exception during ping.");
 				e.printStackTrace();
 			} catch (IOException ex) {
 				tries++;
 			}
 			
-			if(tries > Constants.HEARTBEAT_TRIES_COUNT){
+			if(tries > Constants.PING_TRIES_COUNT){
 				onNotRespondingStorageServer();
 				closeConnection();
 			}
@@ -98,7 +98,7 @@ public class NamingServerUser extends Thread {
 		String address = NamingServerMain.removeStorageServer(this);
 		File file = new File(Constants.ROOT_FOLDER_NAME);
 		createReplicas(file, address);
-		System.out.println("-------------------Heartbeat to " + address + " not received!");
+		System.out.println("-------------------Ping to " + address + " not successful!");
 	}
 	
 	private void createReplicas(File file, String failedAddress){
